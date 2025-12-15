@@ -1,0 +1,141 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Automatic Weather App</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&display=swap" rel="stylesheet">
+    <style>
+        body { font-family: 'Inter', sans-serif; }
+    </style>
+</head>
+<body class="bg-gray-100 min-h-screen flex items-center justify-center p-4">
+
+    <div id="app" class="bg-white p-6 md:p-10 rounded-xl shadow-2xl w-full max-w-md text-center">
+        <h1 class="text-3xl font-bold text-gray-800 mb-4">Local Weather Finder</h1>
+        <p class="text-gray-500 mb-6">Click the button below to get your current weather.</p>
+        
+        <button id="getWeatherBtn"
+            class="w-full bg-blue-600 hover:bg-blue-700 text-white font-semibold py-3 px-6 rounded-lg transition duration-200 shadow-md transform hover:scale-[1.01] focus:outline-none focus:ring-4 focus:ring-blue-300">
+            Find My Weather Automatically
+        </button>
+
+        <!-- Display Area -->
+        <div id="output" class="mt-8 p-4 bg-gray-50 rounded-lg text-left hidden">
+            <h2 class="text-2xl font-semibold mb-3 text-blue-700">Current Local Forecast</h2>
+            <div id="loading" class="text-center text-blue-500 py-4 hidden">
+                <svg class="animate-spin h-5 w-5 mr-3 inline-block" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                    <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+                    <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                </svg>
+                Fetching location and weather...
+            </div>
+            <p id="locationText" class="text-sm font-medium text-gray-600 mb-2"></p>
+            <p id="tempText" class="text-4xl font-extrabold text-gray-900"></p>
+            <p id="descText" class="text-xl text-gray-700"></p>
+            <p id="errorText" class="text-red-500 font-bold mt-4 hidden"></p>
+        </div>
+    </div>
+
+    <script>
+        // *** IMPORTANT: This URL must match the address where your Flask server is running ***
+        const API_URL = 'http://127.0.0.1:5000/api/weather';
+        
+        const btn = document.getElementById('getWeatherBtn');
+        const outputDiv = document.getElementById('output');
+        const loadingDiv = document.getElementById('loading');
+        const locationText = document.getElementById('locationText');
+        const tempText = document.getElementById('tempText');
+        const descText = document.getElementById('descText');
+        const errorText = document.getElementById('errorText');
+
+        btn.addEventListener('click', getGeoLocation);
+
+        function showLoading(show) {
+            outputDiv.classList.remove('hidden');
+            loadingDiv.classList.toggle('hidden', !show);
+            locationText.textContent = '';
+            tempText.textContent = '';
+            descText.textContent = '';
+            errorText.classList.add('hidden');
+        }
+
+        function displayError(message) {
+            loadingDiv.classList.add('hidden');
+            errorText.textContent = message;
+            errorText.classList.remove('hidden');
+        }
+
+        function getGeoLocation() {
+            showLoading(true);
+
+            if (navigator.geolocation) {
+                // This is the browser's API call to get coordinates
+                navigator.geolocation.getCurrentPosition(
+                    position => {
+                        // Success: We got the coordinates!
+                        const lat = position.coords.latitude;
+                        const lon = position.coords.longitude;
+                        
+                        // Now, call our Flask API with the coordinates
+                        fetchWeather(lat, lon);
+                    },
+                    error => {
+                        // Failure: User denied access or GPS is off
+                        let errorMessage = "Geolocation failed. ";
+                        switch(error.code) {
+                            case error.PERMISSION_DENIED:
+                                errorMessage += "Please allow location access in your browser.";
+                                break;
+                            case error.POSITION_UNAVAILABLE:
+                                errorMessage += "Location information is unavailable.";
+                                break;
+                            case error.TIMEOUT:
+                                errorMessage += "The request to get user location timed out.";
+                                break;
+                            default:
+                                errorMessage += "An unknown error occurred.";
+                        }
+                        displayError(errorMessage);
+                    }
+                );
+            } else {
+                displayError("Geolocation is not supported by your browser.");
+            }
+        }
+
+        async function fetchWeather(lat, lon) {
+            try {
+                // 1. Construct the URL with lat/lon parameters
+                const fullUrl = `${API_URL}?lat=${lat}&lon=${lon}`;
+
+                // 2. Call our custom Flask backend API
+                const response = await fetch(fullUrl);
+                const data = await response.json();
+                
+                showLoading(false); // Hide loading indicator
+
+                if (response.ok) {
+                    // Success: Parse the JSON data
+                    const temp = data.main.temp;
+                    const city = data.name;
+                    const description = data.weather[0].description;
+
+                    // Display the results
+                    locationText.textContent = `Location: ${city} (Lat: ${lat.toFixed(2)}, Lon: ${lon.toFixed(2)})`;
+                    tempText.textContent = `${Math.round(temp)}°F`;
+                    descText.textContent = description.charAt(0).toUpperCase() + description.slice(1);
+                } else {
+                    // API returned an error (400, 404, 500, etc.)
+                    displayError(`API Error (${response.status}): ${data.error}`);
+                }
+
+            } catch (e) {
+                displayError("Network error: Could not reach the Flask server.");
+                console.error(e);
+            }
+        }
+    </script>
+</body>
+</html>
