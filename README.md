@@ -1,5 +1,5 @@
 <h1 align="center">Weather Proxy Script</h1>  
-<h3 align="center">A Pythonb Flask application for pulling local weather information from the OpenWeatherMap.Org API</h3>
+<h3 align="center">A Python Flask application for pulling local weather information from the OpenWeatherMap.Org API</h3>
 
 The primary function of the script is to fetch current weather conditions from the external OpenWeatherMap.Org API using GPS information while shielding the API key being used from the userbase.
 
